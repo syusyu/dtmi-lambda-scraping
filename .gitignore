@@ -1,0 +1,20 @@
+# See https://help.github.com/ignore-files/ for more about ignoring files.
+
+# dependencies
+/venv
+
+# testing
+/coverage
+
+# lambda-work 
+/lambda_work
+
+# misc
+.DS_Store
+
+
+# IDE
+.idea/
+
+# python
+__pycache__
