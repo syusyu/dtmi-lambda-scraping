@@ -12,7 +12,6 @@ def lambda_handler(event, context):
     users = fetch_user(dynamodb)
     users = scraping_main(users)
     # print(users)
-    return users
     update_user(dynamodb, users)
 
 
@@ -33,15 +32,14 @@ def fetch_user(dynamodb):
     while 'LastEvaluatedKey' in response:
         response = table.scan(ExclusiveStartKey=response['LastEvaluatedKey'])
         data.extend(response['Items'])
-    print(data)
     return data
 
 
 def scraping_main(users):
     for user in users:
-        programs = []
+        programs = {}
         for search_word in user['SearchWords']:
-            programs.extend(scraping_programs(search_word))
+            programs[search_word] = scraping_programs(search_word)
 
         user['Programs'] = programs
     return users
@@ -55,8 +53,7 @@ def scraping_programs(search_word):
             'Title': program['title'],
             'Station': program['station'],
             'Date': program['date'],
-            'ProgramId': hashlib.md5((program['title'] + str(program['date'])).encode('utf-8')).hexdigest(),
-            'SearchWord': search_word,
+            'ProgramId': hashlib.md5((program['title'] + program['date']).encode('utf-8')).hexdigest(),
             'Link': program['link'],
             'Notify': 1
         })
@@ -68,7 +65,7 @@ def scraping_execute(search_word):
                              data={'q': search_word, 'a': '23', 'oa': '1', 'tv': '1', 'bsd': '1'});
     soup = bs4.BeautifulSoup(response.content)
     search_result = soup.select('.programlist li')
-    print('len=' + str(len(search_result)))
+    # print('len=' + str(len(search_result)))
 
     result = []
     for elem in search_result:
@@ -80,8 +77,8 @@ def scraping_execute(search_word):
         link = program.select('a')[0].get('href')
         result.append({'date': date, 'time': time, 'station': station, 'title': title, 'link': link})
 
-    for elem in result:
-        print(str(elem['date']) + '/' + elem['time'] + ' / ' + elem['station'] + ' / '+ elem['title'] + ', ' + elem['link'])
+    # for elem in result:
+    #     print(elem['date'] + '/' + elem['time'] + ' / ' + elem['station'] + ' / '+ elem['title'] + ', ' + elem['link'])
 
     return result
 
@@ -97,7 +94,7 @@ def get_date(month_day):
     if date < today:
         date_str = str(this_year + 1) + '/' + month_day
         date = datetime.datetime.strptime(date_str, "%Y/%m/%d").date()
-    return date
+    return date.strftime('%Y/%m/%d')
 
 
 def update_user(dynamodb, users):
