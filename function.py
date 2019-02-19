@@ -64,7 +64,6 @@ def scraping_programs(search_word):
 
 
 def scraping_execute(search_word):
-    search_word = 'オランダ'
     response = requests.post('https://tv.yahoo.co.jp/search/category/',
                              data={'q': search_word, 'a': '23', 'oa': '1', 'tv': '1', 'bsd': '1'});
     soup = bs4.BeautifulSoup(response.content)
