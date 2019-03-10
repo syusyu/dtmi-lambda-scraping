@@ -13,36 +13,10 @@ import re
 
 
 def lambda_handler(event, context):
-    try:
-        dynamodb = prepare_dynamodb()
-        users = fetch_user(event, dynamodb)
-        users = scraping_main(users)
-        update_user(dynamodb, users)
-    except Exception as e:
-        return api_gateway_error(e)
-
-
-def api_gateway_success():
-    response = {
-        "statusCode": 200,
-        "headers": {
-            "my_header": "my_value"
-        },
-        "body": JSON.stringify(responseBody),
-        "isBase64Encoded": false
-    }
-    return response
-
-def api_gateway_error(error):
-    response = {
-        "statusCode": 200,
-        "headers": {
-            "my_header": "my_value"
-        },
-        "body": JSON.stringify(responseBody),
-        "isBase64Encoded": false
-    }
-    return response
+    dynamodb = prepare_dynamodb()
+    users = fetch_user(event, dynamodb)
+    users = scraping_main(users)
+    update_user(dynamodb, users)
 
 
 def prepare_dynamodb():
