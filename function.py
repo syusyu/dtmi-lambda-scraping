@@ -4,43 +4,46 @@ import boto3
 import bs4
 import datetime
 import hashlib
-# import json
 import simplejson as json
-
 from boto3.session import Session
 from requests_aws4auth import AWS4Auth
 import re
+from logging import getLogger
+from boto3.dynamodb.conditions import Key
 
 
 def lambda_handler(event, context):
     try:
         dynamodb = prepare_dynamodb()
         users = fetch_user(event, dynamodb)
+        if not users:
+            return api_gateway_error("User not found")
         users = scraping_main(users)
         update_user(dynamodb, users)
+        return api_gateway_success(users)
     except Exception as e:
+        getLogger('scraping').exception(e)
         return api_gateway_error(e)
 
 
-def api_gateway_success():
-    response = {
-        "statusCode": 200,
-        "headers": {
-            "my_header": "my_value"
-        },
-        "body": JSON.stringify(responseBody),
-        "isBase64Encoded": false
-    }
-    return response
+def api_gateway_success(users):
+    user_result = "Users: "
+    user_result += users[0]['UserId'] if len(users) == 1 else 'scanned'
 
-def api_gateway_error(error):
-    response = {
+    return {
         "statusCode": 200,
-        "headers": {
-            "my_header": "my_value"
-        },
-        "body": JSON.stringify(responseBody),
-        "isBase64Encoded": false
+        "headers": {},
+        "body": json.dumps({"user": user_result}),
+        "isBase64Encoded": False
+    }
+
+
+def api_gateway_error(body):
+    response = {
+        "statusCode": 400,
+        "headers": {},
+        "body": json.dumps({"error": body}),
+        "isBase64Encoded": False
     }
     return response
 
@@ -54,22 +57,23 @@ def prepare_dynamodb():
     return dynamodb
 
 
+def extract_user(event):
+    if 'body' not in event:
+        return None
+    user = json.loads(event['body'])
+    return user['user_id'] if 'user_id' in user else None
+
+
 def fetch_user(event, dynamodb):
-    if 'user_id' in event and event['user_id']:
-        return specify_user(dynamodb, event['user_id'])
-    else:
-        return scan_user(dynamodb)
+    user = extract_user(event)
+    return specify_user(dynamodb, user) if user else scan_user(dynamodb)
 
 
 def specify_user(dynamodb, user_id):
-    return [{'UserId': 'xxxx', 'SearchWords': ["スペイン", "移住"]}]
-    # table = dynamodb.Table('User')
-    # response = table.scan()
-    # data = response['Items']
-    # while 'LastEvaluatedKey' in response:
-    #     response = table.scan(ExclusiveStartKey=response['LastEvaluatedKey'])
-    #     data.extend(response['Items'])
-    # return data
+    table = dynamodb.Table('User')
+    response = table.query(KeyConditionExpression=Key('UserId').eq(user_id))
+    data = response['Items']
+    return data
 
 
 def scan_user(dynamodb):
@@ -114,7 +118,6 @@ def scraping_execute(search_word):
                              data={'q': search_word, 'a': '23', 'oa': '1', 'tv': '1', 'bsd': '1'});
     soup = bs4.BeautifulSoup(response.content)
     search_result = soup.select('.programlist li')
-    # print('len=' + str(len(search_result)))
 
     result = []
     for elem in search_result:
@@ -156,7 +159,6 @@ def update_user(dynamodb, users):
         credentials = get_credential()
     except Exception as e:
         print(e)
-        print('NG')
         return
 
     access_key_id = credentials['AccessKeyId']
@@ -167,14 +169,12 @@ def update_user(dynamodb, users):
     headers = {'Content-Type': 'application/graphql'}
 
     for user in users:
-        print('user.programs={0}'.format(user['Programs']))
         programs = replace_query(json.dumps(user['Programs'])) if 'Programs' in user else {}
         data = {
             'query': 'mutation {{updateUserPrograms(UserId: "{0}", Programs: {1}) {{UserId \
              Programs{{SearchWord Programs{{Title Station Date ProgramId Link Notify}} }} }} }}'.format(
                 user['UserId'], programs)}
         response = requests.post(os.environ['APP_SYNC_URL'], headers=headers, data=json.dumps(data), auth=auth)
-        print(response)
     return users
 
 
