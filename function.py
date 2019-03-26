@@ -102,11 +102,12 @@ def scraping_programs(search_word):
     result = []
     programs = scraping_execute(search_word)
     for program in programs:
+        datetime = program['date'] + ' ' + program['time']
         result.append({
             'Title': program['title'],
             'Station': program['station'],
-            'Date': program['date'],
-            'ProgramId': hashlib.md5((program['title'] + program['date']).encode('utf-8')).hexdigest(),
+            'Date': datetime,
+            'ProgramId': hashlib.md5((program['title'] + datetime).encode('utf-8')).hexdigest(),
             'Link': program['link'],
             'Notify': 1
         })
